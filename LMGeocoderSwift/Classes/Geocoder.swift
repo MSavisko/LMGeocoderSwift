@@ -44,9 +44,18 @@ open class Geocoder {
     /// Google Geocoder Task
     private lazy var googleGeocoderTask: URLSessionDataTask? = nil
     
+    /// Locale for address string
+    public var locale: Locale
+    
     // MARK: SINGLETON
     
     public static let shared = Geocoder()
+    
+    // MARK: INITIALIZATION
+    
+    public init(locale: Locale = .current) {
+        self.locale = locale
+    }
     
     // MARK: GEOCODING
     
@@ -93,14 +102,21 @@ open class Geocoder {
         else if service == .AppleService
         {
             // Geocode using Apple service
-            appleGeocoder.geocodeAddressString(address) { (placemarks, error) in
+            let geocodeHandler: CLGeocodeCompletionHandler = { [weak self] (placemarks, error) in
+                let results = self?.parseGeocodingResponse(placemarks, service: .AppleService)
                 
-                let results = self.parseGeocodingResponse(placemarks, service: .AppleService)
-                
-                self.isGeocoding = false
+                self?.isGeocoding = false
                 if let completionHandler = completionHandler {
                     completionHandler(results, error)
                 }
+            }
+            
+            if #available(iOS 11.0, *) {
+                appleGeocoder.geocodeAddressString(address, in: nil,
+                                                   preferredLocale: locale, completionHandler: geocodeHandler)
+            } else {
+                // Fallback on earlier versions
+                appleGeocoder.geocodeAddressString(address, completionHandler: geocodeHandler)
             }
         }
     }
